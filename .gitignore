@@ -1,4 +1,8 @@
 # Byte-compiled / optimized / DLL files
+*/checkpoints/*
+*/my_model/*
+.pytest_cache/*
+.idea
 __pycache__/
 *.py[cod]
 *$py.class
