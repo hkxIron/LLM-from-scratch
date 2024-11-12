@@ -46,7 +46,7 @@ def inference(
         tokenizer: AutoTokenizer,
         #tokenizer: LlamaTokenizer,
         input_text: str = "Once upon a time, ",
-        max_new_tokens: int = 16
+        max_new_tokens: int = 256
 ):
     inputs = tokenizer(input_text, return_tensors="pt").to(device)
     outputs = model.generate(
@@ -60,7 +60,8 @@ def inference(
     )
     generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True) # 只看生成的第0个序列
     # print(outputs)
-    print(generated_text)
+    #print(generated_text)
+    return  generated_text
 
 def convert_text_to_ids(examples: Dict[str, List[str]], tokenizer:LlamaTokenizer)-> Dict[str, list]:
     encoded_texts = tokenizer(examples['text'], add_special_tokens=False)
@@ -299,6 +300,23 @@ def test_data_collator():
     print("after collator:")
     print(dc(raw_tokens))
 
+def test_inference():
+    tokenizer = AutoTokenizer.from_pretrained('/home/hkx/data/work/hf_data_and_model/models/NousResearch/Llama-2-7b-hf')
+    model = AutoModelForCausalLM.from_pretrained('my_model/').to(device)
+    result = inference(model, tokenizer, input_text="Once upon a time, in a beautiful garden, there lived a little rabbit named Peter Rabbit.", max_new_tokens=512)
+    print(result)
+
+    """
+    经过14小时预训练的(20M参数个数)模型，能够生成连贯的句子，但是前后句之间仍有逻辑不一致性。
+     
+    Once upon a time, in a beautiful garden, there lived a little rabbit named Peter Rabbit. Peter loved to eat carrots and bananas. One day, Peter found a big carrot in the garden. He was so happy and wanted to take it home.
+    Honey hopped around and said to Peter, "Wow, you have a carrot! I found it! Can I have it, please?" Peter smiled and said, "Yes, you can have it, but please don't eat it."
+    So Peter and Rabbit went to the garden and started to eat the carrot. But it was so tasty and they were both very full. Suddenly, a big gust of wind came and blew the carrot away. Peter and Rabbit were very sad.
+    Peter said, "Let's find a way to get that toy back." So Peter and Rabbit searched together and found a long stick. They found a long stick and carried it back to the garden. They were very happy and shared the carrot.
+    The moral of the story is that it's important to be careful with things that can hurt you and others.
+    """
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -311,7 +329,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print("parsed args:", args)
 
+    test_inference()
     #train_pred(args)
     #load_model_and_infer()
     # test_data_c0llator()
-    test_my_data_collator()
+    #test_my_data_collator()
