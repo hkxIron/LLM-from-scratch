@@ -43,12 +43,13 @@ def print_model_parameters(model):
 
 def inference(
         model: AutoModelForCausalLM,
-        tokenizer: AutoTokenizer,
-        #tokenizer: LlamaTokenizer,
+        #tokenizer: AutoTokenizer,
+        tokenizer: LlamaTokenizer,
         input_text: str = "Once upon a time, ",
         max_new_tokens: int = 256
 ):
     inputs = tokenizer(input_text, return_tensors="pt").to(device)
+    print("input ids:", inputs)
     outputs = model.generate(
         **inputs,
         pad_token_id=tokenizer.eos_token_id,
@@ -64,14 +65,21 @@ def inference(
     return  generated_text
 
 def convert_text_to_ids(examples: Dict[str, List[str]], tokenizer:LlamaTokenizer)-> Dict[str, list]:
+    """
+    examples:Dict("text" -> List["Once upon a time, there was a dog...",
+                                 "Once upon a time, there was a cat...",
+                                 "Once upon a time, there was a family...",
+                                 ])
+    """
     encoded_texts = tokenizer(examples['text'], add_special_tokens=False)
     input_ids_list = encoded_texts['input_ids']
 
     new_input_ids_list, new_attn_mask_list = [], []
     for input_ids in input_ids_list:
-        temp = input_ids[-max_seq_len + 1:] + [tokenizer.eos_token_id] # 加了一个eos_token_id=2
-        new_input_ids_list.append(temp)
-        new_attn_mask_list.append([1] * len(temp)) # 所有的token所在的地方均为1
+        # 只取input_ids最右边的(max_seq_len-1)个token进行训练, 并加了一个eos
+        truncated_ids = input_ids[-max_seq_len + 1:] + [tokenizer.eos_token_id] # 加了一个eos_token_id=2
+        new_input_ids_list.append(truncated_ids)
+        new_attn_mask_list.append([1] * len(truncated_ids)) # 所有的token所在的地方均为1
     return {
         "input_ids": new_input_ids_list,
         "attention_mask": new_attn_mask_list,
@@ -91,7 +99,7 @@ def batch_padding(examples: List[Dict[str, Any]], tokenizer, padding_side='left'
         for key, value in example.items():
             if key == "labels":
                 pad_id = -100
-            elif key.startswith("attention"):
+            elif key == "attention_mask":
                 pad_id = 0
             else:  # input token ids
                 pad_id = tokenizer.pad_token_id
@@ -100,11 +108,13 @@ def batch_padding(examples: List[Dict[str, Any]], tokenizer, padding_side='left'
             to_pad_ids = [pad_id]*(max_len_in_batch-len(value))
             if padding_side == "left":
                 padded_value = to_pad_ids + value
-            else:
+            else: # right_padding
                 padded_value = value + to_pad_ids
-            update_value = padded_output.setdefault(key, [])
-            update_value.append(padded_value)
-            padded_output[key] = update_value
+            # update_value = padded_output.setdefault(key, [])
+            # update_value.append(padded_value)
+            # padded_output[key] = update_value
+            padded_output.setdefault(key, []).append(padded_value)
+
     # 转为tensor_ids
     padded_tensor = {k:torch.LongTensor(v) for k,v in padded_output.items()} # 均为torch.int64
     return padded_tensor
@@ -129,10 +139,13 @@ def train_pred(args):
     )
 
     model = AutoModelForCausalLM.from_config(config, torch_dtype=torch.float32).to(device)
+
     # 初始化
     kaiming_initialization(model)
 
+    print(model)
     print_model_parameters(model) # 如果是模型的话，大约20M的参数个数，存储大小为：20*4MB=80MB
+
     # 未训练之前，打印预测结果看下
     inference(model, tokenizer)
 
@@ -147,11 +160,12 @@ def train_pred(args):
         ds_train = load_dataset(data_path, split='train')
     #ds_train = load_dataset(data_path, split='train[:1%]')
 
+    cpu_core = os.cpu_count()
     print(f"train data :{ds_train}")
     print(f"test data: {ds_val}")
+    print(f"cpu_core: {cpu_core}")
 
     ds_train = ds_train.shuffle()
-    cpu_core = os.cpu_count()
     ds_train = ds_train.map(function=lambda x:convert_text_to_ids(x, tokenizer),
                             batched=True, # 将样本组成batch, batch为1000,此处的batch与train中的batch不是同一个
                             num_proc=cpu_core,
@@ -329,8 +343,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print("parsed args:", args)
 
-    test_inference()
-    #train_pred(args)
+    train_pred(args)
+    #test_inference()
     #load_model_and_infer()
-    # test_data_c0llator()
+    #test_data_c0llator()
     #test_my_data_collator()
