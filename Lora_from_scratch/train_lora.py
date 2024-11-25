@@ -47,7 +47,7 @@ def collate_fn(batch: List[Dict[str, Any]], tokenizer)->Dict[str, torch.LongTens
         # 左填充
         input_ids.append([tokenizer.eos_token_id] * pad_len + input_id) # input_ids padding填充eos
         attention_mask.append([0] * pad_len + attention_mask_item) # attention_mask padding填充0
-        labels.append([tokenizer.eos_token_id] * pad_len + label) # labels padding也填充eos
+        labels.append([-100] * pad_len + label) # labels padding也填充-100,不过具体是多少并不重要，因为还有attention_mask会将0的位置loss都屏蔽掉
 
     # 将列表转换为张量
     input_ids = torch.LongTensor(input_ids)
