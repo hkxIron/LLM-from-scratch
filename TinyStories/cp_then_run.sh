@@ -1,0 +1,1 @@
+bash scp.sh && bash run_docker.sh
