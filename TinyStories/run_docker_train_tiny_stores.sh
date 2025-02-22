@@ -1,16 +1,9 @@
 #!/usr/bin/env bash
 . ./shell_utils.sh
 
-echo "HOME:$HOME"
-# 同步数据
-remote_project_path="/media/hkx/win/hkx/ubuntu/work/open/LLM-from-scratch/"
-rsync -av -e ssh --exclude='*.git' --exclude='.*' --exclude='*checkpoints*' --exclude='__pycache__/' --exclude='wandb/' hkx@10.239.6.137:${remote_project_path} $HOME/work/open/project/LLM-from-scratch
-
 echo `date`
 start_time=$(date +%s)
 time_str="$(date +%Y%m%d-%H-%M-%S)"
-
-test_min_gpu_num 1
 
 root_path="$HOME/work"
 project_path="${root_path}/open/project/LLM-from-scratch/TinyStories/"
@@ -27,8 +20,11 @@ image="m${img1}.cloud${img2}ioff${img3}/${img4}"
 echo $image
 
 wandb_key="bdfc8b674cd322f967699975e89d431e82fcd317" # hkx wandb
-device_list="0"
+max_gpu_num=1 # 最大限制多少个gpu
+test_max_gpu_num $max_gpu_num
+#device_list="3"
 
+set -x
 nohup docker run -i --rm --gpus '"device='${device_list}'"' --name train_llm_tiny_stories --network=host --shm-size=16gb \
     -v /etc/localtime:/etc/localtime:ro \
     -v ${project_path}:/docker_workspace \
@@ -51,5 +47,6 @@ python train_tiny_stores.py \
 --dataset_path /docker_data_dir \
 --output_path /docker_output_dir " 2>&1 |tee logs/log_${time_str}.txt
 
+set +x
 echo "`date` 训练结束"
 

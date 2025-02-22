@@ -11,11 +11,12 @@ show_run_time(){
   echo `date`
 }
 
-test_min_gpu_num(){
-  local min_gpu_num=$1 # 最少多少个gpu
+test_max_gpu_num(){
+  local max_gpu_num=$1 # 最少多少个gpu
+  echo "限制最大gpu数量：$max_gpu_num"
   seq 0 7 >tmp1.txt
   nvidia-smi|grep "Processes:" -A14|grep "MiB"|awk -F' ' '{if(length($2)>0) {print $2} }'>tmp2.txt
-  device_list=$(sort -n tmp1.txt tmp2.txt tmp2.txt|uniq -u|head -n $min_gpu_num|tr '\n' ','|sed 's/,$//');rm -f tmp1.txt tmp2.txt
+  device_list=$(sort -n tmp1.txt tmp2.txt tmp2.txt|uniq -u|head -n $max_gpu_num|tr '\n' ','|sed 's/,$//');rm -f tmp1.txt tmp2.txt
   gpu_num=$(echo ${device_list}|awk -F',' '{print NF}')
   echo "gpus:$device_list size:${gpu_num}"
   if [ -z "${device_list}" ];then
